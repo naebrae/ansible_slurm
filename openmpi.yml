@@ -1,0 +1,49 @@
+---
+- hosts: computenodes
+  gather_facts: true
+  become: true
+  tasks:
+  - yum: name=openmpi state=present
+
+  # All the following is only required for vagrant because the first interface is a NAT
+  - command: creates=/etc/modulefiles/mpi mkdir -p /etc/modulefiles/mpi
+  - file: src=/usr/share/modulefiles/mpi/openmpi-x86_64 dest=/etc/modulefiles/mpi/openmpi-x86_64 state=link
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+  - command: /usr/sbin/ip route
+    register: routes
+  - set_fact: link_dev="{{ routes.stdout|regex_search(link_net ~ ' dev (.*) proto\\.*','\\1')|first }}"
+  - lineinfile: >
+     dest=/etc/modulefiles/mpi/openmpi-x86_64
+     regexp='setenv             OMPI_MCA_oob_tcp_if_include     {{ link_dev }}'
+     line='setenv               OMPI_MCA_oob_tcp_if_include     {{ link_dev }}'
+     state=present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+  - lineinfile: >
+     dest=/etc/modulefiles/mpi/openmpi-x86_64
+     regexp='setenv             OMPI_MCA_btl_tcp_if_include     {{ link_dev }}'
+     line='setenv               OMPI_MCA_btl_tcp_if_include     {{ link_dev }}'
+     state=present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+  - lineinfile: >
+     dest=/etc/openmpi-x86_64/openmpi-mca-params.conf
+     regexp='btl = ^openib'
+     line='btl = ^openib'
+     state=present
+  - file: path=/etc/modulefiles/mpi/openmpi-x86_64 state=absent
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+
+- hosts: headnodes
+  gather_facts: true
+  tasks:
+  - yum: name=openmpi-devel state=present
+    become: true
+  - copy: src=run_mpiexample dest=~/
+  - copy: src=mpiexample.c dest=~/
+  - shell: module load mpi/openmpi-x86_64 && mpicc -o ~/mpiexample ~/mpiexample.c
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+  - lineinfile: >
+     dest=~/.bashrc
+     regexp='module load mpi/openmpi-x86_64'
+     line='module load mpi/openmpi-x86_64'
+     state=present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7

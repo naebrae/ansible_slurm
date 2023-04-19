@@ -1,0 +1,17 @@
+---
+- hosts: computenodes
+  gather_facts: true
+  become: true
+  tasks:
+  - yum: name=R state=present
+
+
+- hosts: headnodes
+  gather_facts: true
+  tasks:
+  - yum: name=R state=present
+    become: true
+  # Uncomment the following two lines to install the package for all users
+  #- shell: Rscript -e "install.packages('rslurm', repos='http://cran.r-project.org')"
+  #  become: true
+  - copy: src=Rexample.r dest=~/

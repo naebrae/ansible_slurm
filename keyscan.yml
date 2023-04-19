@@ -1,0 +1,9 @@
+---
+- hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+  - name: Creating hosts.equiv for ssh-keyscan
+    template: src=hosts.equiv.j2 dest=/etc/hosts.equiv
+  - shell: /usr/bin/ssh-keyscan -t rsa -f /etc/hosts.equiv > /etc/ssh/ssh_known_hosts
+  - service: name=sshd state=restarted

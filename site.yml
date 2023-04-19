@@ -1,0 +1,156 @@
+---
+- hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+  - service: name=firewalld enabled=false state=stopped
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  - command: warn=no dnf config-manager --set-enabled powertools
+    when: ansible_distribution == "AlmaLinux" and ansible_distribution_major_version|int == 8
+  - command: warn=no dnf config-manager --set-enabled crb
+    when: ansible_distribution == "AlmaLinux" and ansible_distribution_major_version|int == 9
+  - yum: name=epel-release state=present
+    when: ansible_distribution == "AlmaLinux" or ansible_distribution == "CentOS"
+
+  - yum: name=environment-modules state=present
+
+  - yum: name=munge state=present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  - copy: src=munge.key dest=/etc/munge/munge.key owner=munge group=root mode=0400
+  - service: name=munge state=restarted enabled=yes
+
+  - user: name=slurm createhome=no home=/etc/slurm shell=/sbin/nologin state=present
+
+  - yum: name=nfs-utils state=present
+
+  
+- hosts: computenodes
+  gather_facts: false
+  become: true
+  tasks:
+  - yum: 
+      name:
+      - slurm
+      - slurm-slurmd
+      - slurm-pam_slurm
+      - slurm-perlapi
+      - slurm-torque
+      state: present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  - yum: name=numactl,hwloc,lua state=present
+  - file: path=/var/spool/slurmd owner=root group=root mode=0700 state=directory
+  - file: path=/etc/slurm/ state=directory
+  - template: src=slurm.conf.j2 dest=/etc/slurm/slurm.conf owner=root group=root mode=0644
+  - copy: src=plugstack.conf dest=/etc/slurm/ owner=root group=root mode=0644
+  - service: name=slurmd state=restarted enabled=yes
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+
+- hosts: headnodes
+  gather_facts: false
+  become: true
+  tasks:
+  - yum:
+      name:
+      - mariadb-server
+      state: present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  - service: name=mariadb state=restarted enabled=true
+  - shell: mysql -e "grant all on slurm_acct_db.* TO 'slurm'@'localhost' identified by 'slurmPass' with grant option;"
+  - shell: mysql -e "create database if not exists slurm_acct_db;"
+
+  - yum:
+      name:
+      - slurm
+      - slurm-slurmctld
+      - slurm-slurmdbd
+      - slurm-pam_slurm
+      - slurm-perlapi
+      - slurm-torque
+      state: present
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  - file: path=/var/spool/slurmctld owner=slurm group=root mode=0755 state=directory
+  - file: path=/etc/slurm/ state=directory
+  - template: src=slurmdbd.conf.j2 dest=/etc/slurm/slurmdbd.conf owner=slurm group=root mode=0600
+  - service: name=slurmdbd state=restarted enabled=yes
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+  - template: src=slurm.conf.j2 dest=/etc/slurm/slurm.conf owner=slurm group=root mode=0644
+  - service: name=slurmctld state=restarted enabled=yes
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 7
+
+  
+- hosts: all
+  gather_facts: false
+  become: true
+  tasks:
+  - lineinfile: >
+     dest=/etc/ssh/ssh_config
+     regexp='HostbasedAuthentication yes'
+     line='HostbasedAuthentication yes'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/ssh_config
+     regexp='EnableSSHKeysign yes'
+     line='EnableSSHKeysign yes'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/ssh_config
+     regexp='StrictHostKeyChecking no'
+     line='StrictHostKeyChecking no'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/sshd_config
+     regexp='HostbasedAuthentication yes'
+     line='HostbasedAuthentication yes'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/sshd_config
+     regexp='IgnoreUserKnownHosts yes'
+     line='IgnoreUserKnownHosts yes'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/sshd_config
+     regexp='IgnoreRhosts yes'
+     line='IgnoreRhosts yes'
+     state=present
+
+  - lineinfile: >
+     dest=/etc/ssh/sshd_config
+     regexp='HostbasedUsesNameFromPacketOnly yes'
+     line='HostbasedUsesNameFromPacketOnly yes'
+     state=present
+
+
+- hosts: headnodes
+  gather_facts: true
+  become: true
+  tasks:
+  - shell: echo "/home *(rw,sync,no_root_squash)" > /etc/exports
+  - shell: setsebool -P use_nfs_home_dirs 1
+    ignore_errors: true
+  - service: name=rpcbind enabled=true state=started
+  - service: name=nfs enabled=true state=started 
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int <= 7
+  - service: name=nfs-server enabled=true state=started 
+    when: ansible_os_family == "RedHat" and ansible_distribution_major_version|int >= 8
+
+
+- hosts: computenodes
+  gather_facts: true
+  become: true
+  tasks:
+  - service: name=rpcbind enabled=true state=started
+  - yum: name=autofs state=present
+  - service: name=autofs enabled=true state=stopped
+  - copy: src=auto.master dest=/etc/auto.master owner=root group=root mode=0644
+  - template: src=auto.home.j2 dest=/etc/auto.home owner=root group=root mode=0644
