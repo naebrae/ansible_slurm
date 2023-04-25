@@ -33,9 +33,9 @@ Vagrant.configure(2) do |config|
       slhn_ansible.limit = "all"
       slhn_ansible.groups = {
         "headnodes" => ["slhn"],
-        "headnodes:vars" => {"host_domain" => "lab.local"},
+        "headnodes:vars" => {"host_domain" => "lab.home"},
         "computenodes" => nodelist,
-        "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.local"}
+        "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.home"}
       }
     end
     slhn_config.vm.provision "ansible" do |slhn_ansible|
@@ -43,19 +43,19 @@ Vagrant.configure(2) do |config|
       slhn_ansible.limit = "computenodes"
       slhn_ansible.groups = {
         "headnodes" => ["slhn"],
-        "headnodes:vars" => {"host_domain" => "lab.local"},
+        "headnodes:vars" => {"host_domain" => "lab.home"},
         "computenodes" => nodelist,
-        "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.local"}
+        "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.home"}
       }
     end 
   end
 
   config.vm.provision "shell", inline: <<-SHELL
-    echo "172.16.2.100    slhn.lab.local   slhn" >> /etc/hosts
+    echo "172.16.2.100    slhn.lab.home   slhn" >> /etc/hosts
   SHELL
   (1..NODE_COUNT).each do |i|
     config.vm.provision "shell", inline: <<-SHELL
-      echo "172.16.2.#{100+i}    slcn#{i}.lab.local  slcn#{i}" >> /etc/hosts
+      echo "172.16.2.#{100+i}    slcn#{i}.lab.home  slcn#{i}" >> /etc/hosts
     SHELL
   end
   
@@ -63,18 +63,18 @@ Vagrant.configure(2) do |config|
     ansible.playbook = "playbook.yml"
     ansible.groups = {
       "headnodes" => ["slhn"],
-      "headnodes:vars" => {"host_domain" => "lab.local"},
+      "headnodes:vars" => {"host_domain" => "lab.home"},
       "computenodes" => nodelist,
-      "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.local"}
+      "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.home"}
     }
   end
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "openmpi.yml"
     ansible.groups = {
       "headnodes" => ["slhn"],
-      "headnodes:vars" => {"host_domain" => "lab.local"},
+      "headnodes:vars" => {"host_domain" => "lab.home"},
       "computenodes" => nodelist,
-      "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.local", "link_net" => "172.16.2.0/24"}
+      "computenodes:vars" => {"noderange" => "slcn[1-#{NODE_COUNT}]", "headnode" => "slhn", "headnodeip" => "172.16.2.100", "host_domain" => "lab.home", "link_net" => "172.16.2.0/24"}
     }
   end
 

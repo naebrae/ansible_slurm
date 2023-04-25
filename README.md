@@ -65,12 +65,12 @@ slcn1
 slcn2
 
 [headnodes:vars]
-host_domain=lab.local
+host_domain=lab.home
 
 [computenodes:vars]
 noderange=slcn[1-2]
 headnode=slhn
 headnodeip=172.16.2.100
-host_domain=lab.local
+host_domain=lab.home
 host_net=172.16.2.0/24
 ```
